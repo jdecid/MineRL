@@ -9,6 +9,7 @@ verify_ssl = true
 minerl = "*"
 python-dotenv = "*"
 torch = "*"
+torchvision = "*"
 
 [requires]
 python_version = "3.6"
