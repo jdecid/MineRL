@@ -1,7 +1,8 @@
 import torch
 import torch.nn as nn
-
 from torch.nn import functional as F
+
+from src.constants import HEIGHT, WIDTH, CHANNELS
 
 
 class ImitationRNNModel(nn.Module):
@@ -15,16 +16,22 @@ class ImitationRNNModel(nn.Module):
         self.num_continuous = num_continuous
 
         self.cnn = ImitationCNNModel(self.OUTPUT_CNN_UNITS)
-        self.lstm = nn.LSTM(input_size=self.OUTPUT_CNN_UNITS, hidden_size=self.HIDDEN_LSTM_UNITS)
+        self.lstm = nn.LSTM(input_size=self.OUTPUT_CNN_UNITS, hidden_size=self.HIDDEN_LSTM_UNITS, batch_first=True)
         self.fc = nn.Linear(in_features=self.HIDDEN_LSTM_UNITS, out_features=out_features)
 
     def forward(self, pov):
-        seq_len = pov.size(0)
+        batch_size = pov.size(0)
+        seq_len = pov.size(1)
 
-        x = self.cnn(pov)
-        out, _ = self.lstm(x.view(seq_len, 1, self.OUTPUT_CNN_UNITS))
+        # Flatten among batch and sequence dimensions
+        pov = pov.view(-1, CHANNELS, WIDTH, HEIGHT)
+        pov = self.cnn(pov)
+        # Reshape back batch and sequence dimensions
+        pov = pov.view(batch_size, seq_len, self.OUTPUT_CNN_UNITS)
 
-        out = F.relu(out)
+        _, (h_n, _) = self.lstm(pov)
+
+        out = F.relu(h_n)
         out = self.fc(out)
 
         # Set binary outputs in range [0, 1]
