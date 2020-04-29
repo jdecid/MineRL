@@ -5,27 +5,19 @@ import numpy as np
 import torch
 from dotenv import load_dotenv
 from torchvision.transforms import Compose
+from tqdm import tqdm
 
-from src.models.imitation import ImitationRNNModel
+from src.models.imitation import ImitationRNNModel, ImitationCNNModel
 from src.utils import ToTensor, ImitationLoss, DEVICE
 
 EPOCHS = 1
-SEQ_LEN = 32
+SEQ_LEN = 1
 BATCH_SIZE = 16
 
 transformation = Compose([ToTensor()])
 
 
-def next_batch(data, epochs: int, seq_len: int, batch_size: int):
-    """
-
-    :param data:
-    :param epochs:
-    :param seq_len:
-    :param batch_size:
-    :return:
-    """
-
+def next_seq_frame_batch(data, epochs: int, seq_len: int, batch_size: int):
     current_batch_tensors = []
     actions = []
 
@@ -54,7 +46,9 @@ def train(model, data):
     optimizer = torch.optim.Adam(model.parameters())
     criterion = ImitationLoss(2)
 
-    for data, labels in next_batch(data, EPOCHS, SEQ_LEN, BATCH_SIZE):
+    for data, labels in tqdm(next_seq_frame_batch(data, EPOCHS, SEQ_LEN, BATCH_SIZE)):
+        if SEQ_LEN == 1:
+            data = data.squeeze()
         data = data.to(DEVICE)
 
         # Clear gradients
@@ -76,9 +70,11 @@ if __name__ == '__main__':
     def main():
         load_dotenv()
 
-        minerl.data.download(os.environ['DATASET_DIR'], experiment='MineRLNavigate-v0')
-        data = minerl.data.make('MineRLNavigate-v0', data_dir=os.environ['DATASET_DIR'])
+        minerl.data.download(os.environ['DATASET_DIR'], experiment='MineRLTreechop-v0')
+        data = minerl.data.make('MineRLTreechop-v0', data_dir=os.environ['DATASET_DIR'])
+        print('Data Loaded')
 
+        # model = ImitationCNNModel(out_features=11, num_continuous=2)
         model = ImitationRNNModel(out_features=11, num_continuous=2)
         model = model.to(DEVICE)
 

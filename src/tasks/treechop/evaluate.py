@@ -5,7 +5,7 @@ import minerl
 import torch
 from dotenv import load_dotenv
 
-from src.navigate import transformation
+from src.tasks.treechop.imitation_train import transformation
 from src.utils import tensor_to_action_dict, DEVICE
 
 load_dotenv()

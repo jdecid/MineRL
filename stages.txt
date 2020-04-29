@@ -1,0 +1,17 @@
+1 - Treechop
+------------
+1.1 Train Imitation CNN
+1.2 Train Imitation LSTM + CNN
+1.3 Train RL
+
+2 - Obtain Iron Pickaxe
+-----------------------
+2.0 Connect with previous task (Discuss + Experiment)
+2.1 Train Imitation LSTM + CNN
+
+1.4 Explainability
+1.5 Extract reward with IRL to train Policy
+
+3 - Obtain Diamond (If super pros)
+----------------------------------
+3.1 Train Imitation LSTM + CNN
