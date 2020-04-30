@@ -15,7 +15,7 @@ class ImitationRNNModel(nn.Module):
         self.out_features = out_features
         self.num_continuous = num_continuous
 
-        self.cnn = ImitationCNNModel(self.OUTPUT_CNN_UNITS)
+        self.cnn = CNN(self.OUTPUT_CNN_UNITS)
         self.lstm = nn.LSTM(input_size=self.OUTPUT_CNN_UNITS, hidden_size=self.HIDDEN_LSTM_UNITS, batch_first=True)
         self.fc = nn.Linear(in_features=self.HIDDEN_LSTM_UNITS, out_features=out_features)
 
@@ -41,6 +41,30 @@ class ImitationRNNModel(nn.Module):
 
 
 class ImitationCNNModel(nn.Module):
+    OUTPUT_CNN_UNITS = 128
+
+    def __init__(self, out_features: int, num_continuous: int):
+        super().__init__()
+
+        self.out_features = out_features
+        self.num_continuous = num_continuous
+
+        self.cnn = CNN(output_units=self.OUTPUT_CNN_UNITS)
+        self.fc = nn.Linear(in_features=self.OUTPUT_CNN_UNITS, out_features=out_features)
+
+    def forward(self, pov):
+        out = self.cnn(pov)
+
+        out = F.relu(out)
+        out = self.fc(out)
+
+        # Set binary outputs in range [0, 1]
+        out[:, self.num_continuous:] = torch.sigmoid(out[:, self.num_continuous:])
+
+        return out
+
+
+class CNN(nn.Module):
     def __init__(self, output_units: int):
         super().__init__()
 

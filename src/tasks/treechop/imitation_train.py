@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from torchvision.transforms import Compose
 from tqdm import tqdm
 
-from src.models.imitation import ImitationRNNModel, ImitationCNNModel
+from src.models.imitation import ImitationCNNModel
 from src.utils import ToTensor, ImitationLoss, DEVICE
 
 EPOCHS = 1
@@ -74,8 +74,8 @@ if __name__ == '__main__':
         data = minerl.data.make('MineRLTreechop-v0', data_dir=os.environ['DATASET_DIR'])
         print('Data Loaded')
 
-        # model = ImitationCNNModel(out_features=11, num_continuous=2)
-        model = ImitationRNNModel(out_features=11, num_continuous=2)
+        model = ImitationCNNModel(out_features=11, num_continuous=2)
+        # model = ImitationRNNModel(out_features=11, num_continuous=2)
         model = model.to(DEVICE)
 
         train(model, data)
