@@ -1,8 +1,13 @@
 1 - Treechop
 ------------
 1.1 Train Imitation CNN
+    > Train model
+    > Evaluate model
 1.2 Train Imitation LSTM + CNN
+    > Train model
+    > Evaluate model
 1.3 Train RL
+    > ?
 
 2 - Obtain Iron Pickaxe
 -----------------------

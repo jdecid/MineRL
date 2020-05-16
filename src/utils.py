@@ -29,6 +29,12 @@ class ToTensor(object):
         return tensor.permute(2, 0, 1)
 
 
+def init_weights(m):
+    if type(m) in [nn.Linear, nn.Conv2d]:
+        torch.nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+        m.bias.data.fill_(0)
+
+
 def action_dict_to_tensor(x: OrderedDict, keys: List[str], contains: bool) -> torch.Tensor:
     # n = # keys matching
     # Output size (n)

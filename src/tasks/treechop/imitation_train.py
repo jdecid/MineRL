@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import Compose
 
 from src.models.imitation import ImitationLSTMModel, ImitationCNNModel
-from src.utils import ToTensor, ImitationLoss, DEVICE
+from src.utils import ToTensor, ImitationLoss, DEVICE, init_weights
 
 EPOCHS = 100
 SEQ_LEN = 10
@@ -49,6 +49,8 @@ def train(model, frames):
     writer = SummaryWriter(log_dir=os.environ['LOGS_DIR'])
 
     model.train()
+    model.apply(init_weights)
+
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     criterion = ImitationLoss(num_continuous=2, writer=writer)
 
@@ -59,9 +61,12 @@ def train(model, frames):
         # Clear gradients
         optimizer.zero_grad()
 
-        prediction = model(frames).squeeze()
+        if model.is_recurrent:
+            prediction, _ = model(frames)
+        else:
+            prediction = model(frames)
 
-        loss = criterion(prediction, target_actions, idx)
+        loss = criterion(prediction.squeeze(), target_actions, idx)
         loss.backward()
 
         optimizer.step()

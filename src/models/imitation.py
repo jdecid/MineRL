@@ -12,6 +12,8 @@ class ImitationLSTMModel(nn.Module):
     def __init__(self, out_features: int, num_continuous: int):
         super().__init__()
 
+        self.is_recurrent = True
+
         self.out_features = out_features
         self.num_continuous = num_continuous
 
@@ -19,7 +21,7 @@ class ImitationLSTMModel(nn.Module):
         self.lstm = nn.LSTM(input_size=1600, hidden_size=self.HIDDEN_LSTM_UNITS, batch_first=True)
         self.fc = nn.Linear(in_features=self.HIDDEN_LSTM_UNITS, out_features=out_features)
 
-    def forward(self, x):
+    def forward(self, x, hc=None):
         batch_size = x.size(0)
         seq_len = x.size(1)
 
@@ -29,7 +31,7 @@ class ImitationLSTMModel(nn.Module):
 
         # Reshape back batch and sequence dimensions
         x = x.view(batch_size, seq_len, 1600)
-        _, (h_n, _) = self.lstm(x)
+        _, (h_n, c_n) = self.lstm(x, hc)
 
         x = F.relu(h_n)
         out = self.fc(x)
@@ -37,12 +39,14 @@ class ImitationLSTMModel(nn.Module):
         # Set binary outputs in range [0, 1] to apply 0.5 threshold
         out[:, :, self.num_continuous:] = torch.sigmoid(out[:, :, self.num_continuous:])
 
-        return out
+        return out, (h_n, c_n)
 
 
 class ImitationCNNModel(nn.Module):
     def __init__(self, out_features: int, num_continuous: int):
         super().__init__()
+
+        self.is_recurrent = False
 
         self.out_features = out_features
         self.num_continuous = num_continuous
@@ -66,4 +70,3 @@ class ImitationCNNModel(nn.Module):
         out[:, :self.num_continuous] = torch.tanh(out[:, :self.num_continuous])
 
         return out
-
