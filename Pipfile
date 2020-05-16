@@ -7,9 +7,10 @@ verify_ssl = true
 
 [packages]
 python-dotenv = "*"
-torch = "1.5.0"
-torchvision = "0.6.0"
+torch = "*"
+torchvision = "*"
 minerl = "*"
+tensorboard = "*"
 
 [requires]
 python_version = "3.6"

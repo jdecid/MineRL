@@ -17,17 +17,17 @@ if __name__ == '__main__':
     load_dotenv()
 
     if args.model == 'CNN':
-        model = ImitationCNNModel(out_features=10, num_continuous=2)
+        model = ImitationCNNModel(out_features=11, num_continuous=2)
         path = os.path.join(os.environ['CHECKPOINT_DIR'], 'ImitationCNNModel_X.pt')
     else:
-        model = ImitationLSTMModel(out_features=10, num_continuous=2)
-        path = os.path.join(os.environ['CHECKPOINT_DIR'], 'ImitationLSTMModel_6.pt')
+        model = ImitationLSTMModel(out_features=11, num_continuous=2)
+        path = os.path.join(os.environ['CHECKPOINT_DIR'], 'ImitationLSTMModel_2.pt')
 
     model.load_state_dict(torch.load(path))
     model.to(DEVICE)
     model.eval()
 
-    env = gym.make('MineRLTreechop-v0')
+    env = gym.make('MineRLNavigateDense-v0')
 
     obs = env.reset()
     done = False

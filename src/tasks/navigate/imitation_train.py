@@ -75,14 +75,14 @@ def train(model, frames):
 def main(args: argparse.Namespace):
     load_dotenv()
 
-    minerl.data.download(os.environ['DATASET_DIR'], experiment='MineRLTreechop-v0')
-    data = minerl.data.make('MineRLTreechop-v0', data_dir=os.environ['DATASET_DIR'])
+    minerl.data.download(os.environ['DATASET_DIR'], experiment='MineRLNavigateDense-v0')
+    data = minerl.data.make('MineRLNavigateDense-v0', data_dir=os.environ['DATASET_DIR'])
     print('Data Loaded')
 
     if args.model == 'CNN':
-        model = ImitationCNNModel(out_features=10, num_continuous=2)
+        model = ImitationCNNModel(out_features=11, num_continuous=2)
     else:  # LSTM
-        model = ImitationLSTMModel(out_features=10, num_continuous=2)
+        model = ImitationLSTMModel(out_features=11, num_continuous=2)
     model = model.to(DEVICE)
 
     train(model, data)

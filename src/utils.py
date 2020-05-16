@@ -1,3 +1,4 @@
+import gym
 import numpy as np
 import torch
 from torch import nn
@@ -9,78 +10,78 @@ from collections import OrderedDict
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # TODO: Place¿?
-BINARY_CONSTANTS = ["attack",
-                    "back",
-                    "forward",
-                    "jump",
-                    "left",
-                    # "place",
-                    "right",
-                    "sneak",
-                    "sprint"]
+BINARY_CONSTANTS = ['attack',
+                    'back',
+                    'forward',
+                    'jump',
+                    'left',
+                    # 'place',
+                    'right',
+                    'sneak',
+                    'sprint']
 
 
 class ToTensor(object):
     def __call__(self, sample: np.ndarray, *args, **kwargs):
-        dims = len(sample.shape)
-        assert dims == 3 or dims == 4, 'Matrix must have 3 or 4 dimensions'
-
         tensor = torch.from_numpy(sample).to(torch.float)
-        # TODO: Change with Normalize (0, 1) outside
-        tensor = 2 * (tensor / 255.0) - 1
-
-        if dims == 4:
-            return tensor.permute(0, 3, 1, 2)
-        else:
-            return tensor.permute(2, 0, 1)
+        # tensor = 2 * (tensor / 255.0) - 1
+        tensor = tensor / 255.0
+        return tensor.permute(2, 0, 1)
 
 
-def action_dict_to_tensor(x: OrderedDict, keys: List[str], contain: bool) -> torch.Tensor:
+def action_dict_to_tensor(x: OrderedDict, keys: List[str], contains: bool) -> torch.Tensor:
+    # n = # keys matching
+    # Output size (n)
     tensor = []
 
     for key in x.keys():
-        if (contain and key in keys) or (not contain and key not in keys):
-            value = x[key]
+        if (contains and key in keys) or (not contains and key not in keys):
+            value = x[key][0]
 
             if key != 'camera':
-                tensor.append(torch.tensor(value))
+                tensor.append(value)
             else:
-                tensor.append(torch.tensor(value[0]))
-                tensor.append(torch.tensor(value[1]))
+                tensor.append(value[0])
+                tensor.append(value[1])
 
-    return torch.stack(tensor).permute(1, 0).to(torch.float).to(DEVICE)
+    return torch.tensor(tensor).to(torch.float).to(DEVICE)
 
 
-def tensor_to_action_dict(x: torch.Tensor) -> OrderedDict:
-    actions = OrderedDict()
+def tensor_to_action_dict(env: gym.Env, x: torch.Tensor) -> OrderedDict:
+    actions = env.action_space.noop()
 
-    actions['camera'] = x[0, 0, :2]
-    actions['place'] = 'none'
-
-    print(x.size())
-
+    actions['camera'] = (float(x[0]), float(x[1]))
     for idx, action in enumerate(BINARY_CONSTANTS, start=2):
-        actions[action] = int(x[0, 0, idx] >= 0.5)
+        actions[action] = int(x[idx] >= 0.5)
 
     return actions
 
 
 class ImitationLoss(nn.Module):
-    def __init__(self, num_continuous: int):
+    def __init__(self, num_continuous: int, writer):
         super().__init__()
 
         self.num_continuous = num_continuous
+        self.writer = writer
 
         self.bce_criterion = nn.BCELoss()
         self.mse_criterion = nn.MSELoss()
 
-    def forward(self, pred: torch.Tensor, y: OrderedDict) -> torch.Tensor:
-        categorical_targets = list(map(lambda x: action_dict_to_tensor(x, ['camera'], contain=False), y))
-        categorical_targets = torch.stack(categorical_targets)[:, -1, :]
+    def forward(self, pred: torch.Tensor, y: List[OrderedDict], idx: int) -> torch.Tensor:
+        categorical_targets = torch.stack(list(map(lambda x: action_dict_to_tensor(x, ['camera'], contains=False), y)))
         categorical_loss = self.bce_criterion(pred[:, self.num_continuous:], categorical_targets)
 
-        mse_targets = list(map(lambda x: action_dict_to_tensor(x, ['camera'], contain=True), y))
-        mse_targets = torch.stack(mse_targets)[:, -1, :]
+        mse_targets = torch.stack(list(map(lambda x: action_dict_to_tensor(x, ['camera'], contains=True), y)))
         mse_loss = self.mse_criterion(pred[:, :self.num_continuous], mse_targets)
 
-        return categorical_loss + mse_loss
+        loss = categorical_loss + MSE_MULTIPLIER * mse_loss
+
+        self.writer.add_scalars('Loss', {
+            'Categorical Loss': categorical_loss.item(),
+            'MSE Loss': MSE_MULTIPLIER * mse_loss.item()
+        }, global_step=idx)
+
+        return loss
+
+
+MSE_MULTIPLIER = 0.01
