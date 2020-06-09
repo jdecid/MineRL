@@ -7,7 +7,8 @@ from src.models.cnn import CNN
 
 
 class PolicyLSTMModel(nn.Module):
-    HIDDEN_LSTM_UNITS = 512
+    HIDDEN_LSTM_UNITS = 128
+    LSTM_DROPOUT = 0.2
 
     def __init__(self, num_categorical: int, num_continuous: int):
         super().__init__()
@@ -18,7 +19,8 @@ class PolicyLSTMModel(nn.Module):
         self.num_continuous = num_continuous
 
         self.cnn = CNN()
-        self.lstm = nn.LSTM(input_size=1600, hidden_size=self.HIDDEN_LSTM_UNITS, batch_first=True)
+        self.lstm = nn.LSTM(input_size=1600, batch_first=True,
+                            hidden_size=self.HIDDEN_LSTM_UNITS, dropout=self.LSTM_DROPOUT)
         self.fc = nn.Linear(in_features=self.HIDDEN_LSTM_UNITS, out_features=num_categorical + 2 * num_continuous)
 
     def forward(self, x, hc=None):
