@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import Compose
 
-from src.models.imitation import ImitationLSTMModel, ImitationCNNModel
+from src.models.imitation import PolicyLSTMModel, PolicyCNNModel
 from src.utils import ToTensor, ImitationLoss, DEVICE
 
 EPOCHS = 100
@@ -52,7 +52,7 @@ def train(model, frames):
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     criterion = ImitationLoss(num_continuous=2, writer=writer)
 
-    seq_len = SEQ_LEN if isinstance(model, ImitationLSTMModel) else 1
+    seq_len = SEQ_LEN if isinstance(model, PolicyLSTMModel) else 1
     for idx, (frames, target_actions) in enumerate(next_batch(frames, seq_len, EPOCHS, BATCH_SIZE), start=1):
         frames = frames.to(DEVICE)
 
@@ -80,9 +80,9 @@ def main(args: argparse.Namespace):
     print('Data Loaded')
 
     if args.model == 'CNN':
-        model = ImitationCNNModel(out_features=11, num_continuous=2)
+        model = PolicyCNNModel(out_features=11, num_continuous=2)
     else:  # LSTM
-        model = ImitationLSTMModel(out_features=11, num_continuous=2)
+        model = PolicyLSTMModel(out_features=11, num_continuous=2)
     model = model.to(DEVICE)
 
     train(model, data)

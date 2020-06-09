@@ -57,10 +57,28 @@ def tensor_to_action_dict(env: gym.Env, x: torch.Tensor) -> OrderedDict:
     actions = env.action_space.noop()
 
     actions['camera'] = (float(x[0]), float(x[1]))
-    for idx, action in enumerate(BINARY_CONSTANTS, start=2):
+    for idx, action in enumerate(BINARY_CONSTANTS, start=4):
         actions[action] = int(x[idx] >= 0.5)
 
     return actions
+
+
+def tensor_to_probabilistic_action_dict(env: gym.Env, x: torch.Tensor) -> OrderedDict:
+    actions = env.action_space.noop()
+
+    actions['camera'] = (
+        sample_normal(x[0], x[2]),
+        sample_normal(x[1], x[3])
+    )
+    for idx, action in enumerate(BINARY_CONSTANTS, start=4):
+        actions[action] = int(x[idx] >= torch.rand(1))
+
+    return actions
+
+
+def sample_normal(mean: torch.Tensor, std: torch.Tensor) -> float:
+    dist = torch.distributions.normal.Normal(mean, std)
+    return float(dist.sample().item())
 
 
 class ImitationLoss(nn.Module):
@@ -75,10 +93,13 @@ class ImitationLoss(nn.Module):
 
     def forward(self, pred: torch.Tensor, y: List[OrderedDict], idx: int) -> torch.Tensor:
         categorical_targets = torch.stack(list(map(lambda x: action_dict_to_tensor(x, ['camera'], contains=False), y)))
-        categorical_loss = self.bce_criterion(pred[:, self.num_continuous:], categorical_targets)
+        categorical_loss = self.bce_criterion(pred[:, 2 * self.num_continuous:], categorical_targets)
 
         mse_targets = torch.stack(list(map(lambda x: action_dict_to_tensor(x, ['camera'], contains=True), y)))
+        std = mse_targets.std(dim=0)
+        std = torch.cat(mse_targets.size(0) * [std.unsqueeze(0)], 0)
         mse_loss = self.mse_criterion(pred[:, :self.num_continuous], mse_targets)
+        mse_loss += self.mse_criterion(pred[:, self.num_continuous:2 * self.num_continuous], std)
 
         loss = categorical_loss + MSE_MULTIPLIER * mse_loss
 

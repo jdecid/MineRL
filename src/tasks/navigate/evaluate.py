@@ -5,7 +5,7 @@ import gym
 import torch
 from dotenv import load_dotenv
 
-from src.models.imitation import ImitationCNNModel, ImitationLSTMModel
+from src.models.imitation import PolicyCNNModel, PolicyLSTMModel
 from src.tasks.treechop.imitation_train import transformation
 from src.utils import tensor_to_action_dict, DEVICE
 
@@ -17,10 +17,10 @@ if __name__ == '__main__':
     load_dotenv()
 
     if args.model == 'CNN':
-        model = ImitationCNNModel(out_features=11, num_continuous=2)
+        model = PolicyCNNModel(out_features=11, num_continuous=2)
         path = os.path.join(os.environ['CHECKPOINT_DIR'], 'ImitationCNNModel_X.pt')
     else:
-        model = ImitationLSTMModel(out_features=11, num_continuous=2)
+        model = PolicyLSTMModel(out_features=11, num_continuous=2)
         path = os.path.join(os.environ['CHECKPOINT_DIR'], 'ImitationLSTMModel_2.pt')
 
     model.load_state_dict(torch.load(path))

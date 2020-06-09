@@ -6,18 +6,18 @@ import gym
 import torch
 from dotenv import load_dotenv
 
-from src.models.imitation import ImitationCNNModel, ImitationLSTMModel
-from src.tasks.treechop.imitation_train import transformation
+from src.models.imitation import PolicyCNNModel, PolicyLSTMModel
+from src.tasks.treechop.imitation_train import transformation, SEQ_LEN
 from src.utils import tensor_to_action_dict, DEVICE
 
 
 def load_model(model_type: str):
     if model_type == 'CNN':
-        model = ImitationCNNModel(out_features=10, num_continuous=2)
-        path = os.path.join(os.environ['CHECKPOINT_DIR'], 'ImitationCNNModel_X.pt')
+        model = PolicyCNNModel(num_categorical=8, num_continuous=2)
+        path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-08_23-05-45-108802', 'PolicyCNNModel_11.pt')
     else:
-        model = ImitationLSTMModel(out_features=10, num_continuous=2)
-        path = os.path.join(os.environ['CHECKPOINT_DIR'], 'ImitationLSTMModel_6.pt')
+        model = PolicyLSTMModel(num_categorical=8, num_continuous=2)
+        path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-08_17-14-00-858925', 'PolicyLSTMModel_6.pt')
 
     model.load_state_dict(torch.load(path))
     model.to(DEVICE)
@@ -49,16 +49,22 @@ def run_env(model, env):
     done = False
     hc = None
 
+    frames = []
+
     with torch.no_grad():
         idx = 0
         rewards = []
         while not done and idx < 1000:
             frame = transformation(obs['pov'].copy()).unsqueeze_(0).to(DEVICE)
+            frames.append(frame)
+            if len(frames) > SEQ_LEN:
+                frames = frames[-SEQ_LEN:]
 
             if not model.is_recurrent:
                 pred = model(frame)
             else:
-                pred, hc = model(frame.unsqueeze_(0), hc)
+                # pred, hc = model(frame.unsqueeze_(0), hc)
+                pred, _ = model(torch.cat(frames, 0).unsqueeze_(0))
 
             action = tensor_to_action_dict(env, pred.squeeze())
             # print(action)
