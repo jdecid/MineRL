@@ -9,7 +9,13 @@ from src.tasks.treechop.evaluate import load_model
 from src.utils import DEVICE
 
 
-def main(training_type: str, model_type: str, checkpoint: str, n_envs: int):
+def main(args):
+    training_type = args.training
+    model_type = args.model
+    checkpoint = args.checkpoint
+    episodes = args.episodes
+    iterations = args.iterations
+
     if checkpoint is not None:
         model = load_model(model_type)
     else:
@@ -27,7 +33,7 @@ def main(training_type: str, model_type: str, checkpoint: str, n_envs: int):
         train(model, run_timestamp)
     else:  # Reinforcement Learning
         from src.tasks.treechop.reinforcement_cnn_train import main as train
-        train(model, n_envs, run_timestamp)
+        train(model, episodes, iterations, run_timestamp)
 
 
 if __name__ == '__main__':
@@ -35,9 +41,9 @@ if __name__ == '__main__':
     parser.add_argument('training', type=str, choices=['Imitation', 'RL'])
     parser.add_argument('model', type=str, choices=['CNN', 'LSTM'])
     parser.add_argument('--checkpoint', type=str, default=None)
-    parser.add_argument('--nenvs', type=int, default=1)
+    parser.add_argument('--episodes', type=int, default=1)
+    parser.add_argument('--iterations', type=int, default=1000)
     args = parser.parse_args()
 
     load_dotenv()
-    with torch.autograd.set_detect_anomaly(True):
-        main(args.training, args.model, args.checkpoint, args.nenvs)
+    main(args)

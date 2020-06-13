@@ -1,12 +1,12 @@
 import os
-import uuid
 
 import gym
 import numpy as np
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 from src.tasks.treechop.imitation_train import transformation
-from src.utils import DEVICE, tensor_to_probabilistic_action_dict, tensor_to_action_dict
+from src.utils import DEVICE, tensor_to_probabilistic_action_dict
 
 
 def discount_rewards(rewards, gamma=0.99):
@@ -15,42 +15,51 @@ def discount_rewards(rewards, gamma=0.99):
     return r - r.mean()
 
 
-def main(model: torch.nn.Module, n_envs: int, run_timestamp: str):
-    uid = str(uuid.uuid4())
-    file_path = os.path.join('results', 'treechop', 'rewards', 'LSTM' if model.is_recurrent else 'CNN', f'{uid}.csv')
-    print(f'Saving {uid}')
+def main(model: torch.nn.Module, episodes: int, iterations: int, run_timestamp: str):
+    log_dir = os.path.join(os.environ['LOGS_DIR'], run_timestamp)
+    checkpoint_dir = os.path.join(os.environ['CHECKPOINT_DIR'], run_timestamp)
+    os.makedirs(log_dir)
+    os.makedirs(checkpoint_dir)
+
+    writer = SummaryWriter(log_dir=log_dir)
 
     repeats_rewards = []
 
-    # env = gym.make('MineRLTreechop-v0')
+    env = gym.make('MineRLTreechop-v0')
 
     optimizer = torch.optim.Adam(model.parameters())
 
-    for i in range(n_envs):
-        print(f'Execution {i}')
-        # results = run_env(model, env)
-        test_function(model, optimizer)
+    for i in range(episodes):
+        print(f'Episode {i}')
+        results = run_env(model, env, iterations)
 
-        # optimize_model(optimizer, results)
+        optimize_model(optimizer, results, writer, i)
 
-        # repeats_rewards.append(results['rewards'])
-
-    with open(file_path, mode='w') as f:
-        f.writelines([','.join(list(map(str, rewards))) + '\n' for rewards in repeats_rewards])
+        repeats_rewards.append(results['rewards'])
 
 
-def optimize_model(optimizer: torch.optim.Optimizer, results):
+def optimize_model(optimizer: torch.optim.Optimizer, results, writer, idx):
     long_term_reward = discount_rewards(results['rewards'])
+
+    optimizer.zero_grad()
+
+    loss = torch.zeros(1, device=DEVICE)
     for t in range(len(long_term_reward)):
-        optimizer.zero_grad()
+        loss += results['log_probs'][t] * long_term_reward[t]
 
-        loss = results['log_probs'][t]  # * long_term_reward[t]
-        loss.backward()
+    loss.backward()
+    optimizer.step()
 
-        optimizer.step()
+    cumsum_reward = torch.cumsum(torch.tensor(results['rewards']), dim=0)
+
+    writer.add_scalars('Loss', {
+        'Loss': loss.item(),
+        'Mean Reward': cumsum_reward.mean().item(),
+        'Final Reward': cumsum_reward[-1].item()
+    }, global_step=idx)
 
 
-def run_env(model, env):
+def run_env(model, env, iterations: int):
     obs = env.reset()
     done = False
     hc = None
@@ -60,7 +69,7 @@ def run_env(model, env):
     log_probs = []
     rewards = []
 
-    while not done and idx < 100:
+    while not done and idx < iterations:
         frame = transformation(obs['pov'].copy()).unsqueeze_(0).to(DEVICE)
 
         if not model.is_recurrent:
@@ -68,7 +77,7 @@ def run_env(model, env):
         else:
             pred, hc = model(frame.unsqueeze_(0), hc)
 
-        action, log_prob = tensor_to_probabilistic_action_dict(env, pred.squeeze())
+        action, log_prob = tensor_to_probabilistic_action_dict(env, pred[0])
         # action = tensor_to_action_dict(env, pred.squeeze())
 
         new_obs, rew, done, _ = env.step(action)
@@ -85,9 +94,10 @@ def run_env(model, env):
     }
 
 
-def test_function(model, optimizer):
-    pred = model(torch.rand((1, 3, 64, 64), device=DEVICE))
+def test_function(model, optimizer, frame):
+    pred = model(frame)
     loss = pred[0].sum()
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
+    print("It works!")

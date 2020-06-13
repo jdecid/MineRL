@@ -66,26 +66,25 @@ def tensor_to_action_dict(env: gym.Env, x: torch.Tensor) -> OrderedDict:
 
 def tensor_to_probabilistic_action_dict(env: gym.Env, x: torch.Tensor) -> Tuple[OrderedDict, torch.Tensor]:
     actions = env.action_space.noop()
-    # log_probs = [0 for _ in range(10)]
-    #
-    # m_1 = Normal(x[0], x[2])
-    # camera_action_1 = m_1.rsample()
-    # log_probs[0] = m_1.log_prob(camera_action_1)
-    #
-    # m_2 = Normal(x[1], x[3])
-    # camera_action_2 = m_2.rsample()
-    # log_probs[1] = m_2.log_prob(camera_action_2)
-    #
-    # actions['camera'] = (float(camera_action_1.item()), float(camera_action_2.item()))
-    #
-    # for idx, action in enumerate(BINARY_CONSTANTS, start=4):
-    #     # actions[action] = int(x[idx] >= torch.rand(1, device=DEVICE))
-    #     m = Bernoulli(x[idx])
-    #     sampled_action = m.sample()
-    #     log_probs[idx - 2] = m.log_prob(sampled_action)
-    #     actions[action] = int(sampled_action)
+    log_probs = [0 for _ in range(10)]
 
-    return actions, x.sum()  # torch.stack(log_probs).sum()
+    m_1 = Normal(x[0], x[2])
+    camera_action_1 = m_1.rsample()
+    log_probs[0] = m_1.log_prob(camera_action_1)
+
+    m_2 = Normal(x[1], x[3])
+    camera_action_2 = m_2.rsample()
+    log_probs[1] = m_2.log_prob(camera_action_2)
+
+    actions['camera'] = (float(camera_action_1.item()), float(camera_action_2.item()))
+
+    for idx, action in enumerate(BINARY_CONSTANTS, start=4):
+        m = Bernoulli(x[idx])
+        sampled_action = m.sample()
+        log_probs[idx - 2] = m.log_prob(sampled_action)
+        actions[action] = int(sampled_action)
+
+    return actions, torch.stack(log_probs).sum()
 
 
 class ImitationLoss(nn.Module):
