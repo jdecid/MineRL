@@ -95,7 +95,7 @@ def run_env(model, env, reset_step: bool):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('model', type=str, choices=['CNN', 'LSTM'])
-    parser.add_argument('--reset_step', type=bool, default=False)
+    parser.add_argument('--reset_step', type=bool, default=False, const=True, nargs='?')
     parser.add_argument('--repeats', type=int, default=1)
     args = parser.parse_args()
 
