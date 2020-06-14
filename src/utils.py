@@ -70,11 +70,13 @@ def tensor_to_probabilistic_action_dict(env: gym.Env, x: torch.Tensor) -> Tuple[
 
     m_1 = Normal(x[0], x[2])
     camera_action_1 = m_1.rsample()
-    log_probs[0] = m_1.log_prob(camera_action_1)
+    log_prob_1 = m_1.log_prob(camera_action_1)
+    log_probs[0] = log_prob_1 if not torch.isnan(log_prob_1).any() else torch.tensor(0.0, device=DEVICE)
 
     m_2 = Normal(x[1], x[3])
     camera_action_2 = m_2.rsample()
-    log_probs[1] = m_2.log_prob(camera_action_2)
+    log_prob_2 = m_2.log_prob(camera_action_2)
+    log_probs[1] = log_prob_2 if not torch.isnan(log_prob_2).any() else torch.tensor(0.0, device=DEVICE)
 
     actions['camera'] = (float(camera_action_1.item()), float(camera_action_2.item()))
 
@@ -83,6 +85,8 @@ def tensor_to_probabilistic_action_dict(env: gym.Env, x: torch.Tensor) -> Tuple[
         sampled_action = m.sample()
         log_probs[idx - 2] = m.log_prob(sampled_action)
         actions[action] = int(sampled_action)
+
+    print(log_probs)
 
     return actions, torch.stack(log_probs).sum()
 

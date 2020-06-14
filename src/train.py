@@ -15,6 +15,7 @@ def main(args):
     checkpoint = args.checkpoint
     episodes = args.episodes
     iterations = args.iterations
+    eps = args.eps
 
     if checkpoint is not None:
         model = load_model(model_type)
@@ -33,7 +34,7 @@ def main(args):
         train(model, run_timestamp)
     else:  # Reinforcement Learning
         from src.tasks.treechop.reinforcement_cnn_train import main as train
-        train(model, episodes, iterations, run_timestamp)
+        train(model, episodes, iterations, eps, run_timestamp)
 
 
 if __name__ == '__main__':
@@ -43,6 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('--checkpoint', type=str, default=None)
     parser.add_argument('--episodes', type=int, default=1)
     parser.add_argument('--iterations', type=int, default=1000)
+    parser.add_argument('--eps', type=float, default=0.9)
     args = parser.parse_args()
 
     load_dotenv()

@@ -3,19 +3,22 @@ import os
 import gym
 import numpy as np
 import torch
+from torch.distributions import Bernoulli
 from torch.utils.tensorboard import SummaryWriter
 
 from src.tasks.treechop.imitation_train import transformation
-from src.utils import DEVICE, tensor_to_probabilistic_action_dict
+from src.utils import DEVICE, tensor_to_probabilistic_action_dict, tensor_to_action_dict
 
 
-def discount_rewards(rewards, gamma=0.99):
-    r = np.array([gamma ** i * r for i, r in enumerate(rewards)])
-    r = r[::-1].cumsum()[::-1]
-    return r - r.mean()
+def discount_rewards(rewards, gamma=0.9):
+    dr = []
+    for t in range(len(rewards)):
+        r = np.array([gamma ** i * r for i, r in enumerate(rewards[t:])])
+        dr.append(r[::-1].cumsum()[-1])
+    return dr
 
 
-def main(model: torch.nn.Module, episodes: int, iterations: int, run_timestamp: str):
+def main(model: torch.nn.Module, episodes: int, iterations: int, eps: float, run_timestamp: str):
     log_dir = os.path.join(os.environ['LOGS_DIR'], run_timestamp)
     checkpoint_dir = os.path.join(os.environ['CHECKPOINT_DIR'], run_timestamp)
     os.makedirs(log_dir)
@@ -23,29 +26,34 @@ def main(model: torch.nn.Module, episodes: int, iterations: int, run_timestamp: 
 
     writer = SummaryWriter(log_dir=log_dir)
 
-    repeats_rewards = []
-
     env = gym.make('MineRLTreechop-v0')
 
-    optimizer = torch.optim.Adam(model.parameters())
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
 
-    for i in range(episodes):
-        print(f'Episode {i}')
-        results = run_env(model, env, iterations)
+    for idx in range(episodes):
+        print(f'Episode {idx}')
+        results = run_env(model, env, iterations, eps)
 
-        optimize_model(optimizer, results, writer, i)
+        optimize_model(optimizer, results, writer, idx)
 
-        repeats_rewards.append(results['rewards'])
+        if idx % 10 == 0:
+            print(f'Saving checkpoint {idx // 10}')
+            torch.save(model.state_dict(),
+                       os.path.join(checkpoint_dir, f'{model.__class__.__name__}_{idx // 10}.pt'))
 
 
 def optimize_model(optimizer: torch.optim.Optimizer, results, writer, idx):
     long_term_reward = discount_rewards(results['rewards'])
+    print('[LTR] ', long_term_reward)
 
     optimizer.zero_grad()
 
     loss = torch.zeros(1, device=DEVICE)
     for t in range(len(long_term_reward)):
         loss += results['log_probs'][t] * long_term_reward[t]
+
+    print(results['rewards'])
+    print(loss)
 
     loss.backward()
     optimizer.step()
@@ -59,7 +67,7 @@ def optimize_model(optimizer: torch.optim.Optimizer, results, writer, idx):
     }, global_step=idx)
 
 
-def run_env(model, env, iterations: int):
+def run_env(model, env, iterations: int, eps: float):
     obs = env.reset()
     done = False
     hc = None
@@ -69,6 +77,8 @@ def run_env(model, env, iterations: int):
     log_probs = []
     rewards = []
 
+    bernoulli = Bernoulli(eps)
+
     while not done and idx < iterations:
         frame = transformation(obs['pov'].copy()).unsqueeze_(0).to(DEVICE)
 
@@ -77,8 +87,16 @@ def run_env(model, env, iterations: int):
         else:
             pred, hc = model(frame.unsqueeze_(0), hc)
 
-        action, log_prob = tensor_to_probabilistic_action_dict(env, pred[0])
-        # action = tensor_to_action_dict(env, pred.squeeze())
+        if int(bernoulli.sample().item()):
+            action = tensor_to_action_dict(env, pred[0])
+            log_prob = torch.log(torch.tensor(eps, device=DEVICE))
+            print(f'Det: {log_prob}')
+        else:
+            action, log_prob = tensor_to_probabilistic_action_dict(env, pred[0])
+            log_prob += torch.log(torch.tensor(1 - eps, device=DEVICE))
+            print(f'Prob: {log_prob}')
+
+        print('-' * 20)
 
         new_obs, rew, done, _ = env.step(action)
 
