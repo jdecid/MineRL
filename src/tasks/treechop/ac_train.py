@@ -13,6 +13,9 @@ from src.utils import DEVICE, tensor_to_probabilistic_action_dict, tensor_to_act
 
 REG = 0
 
+minerl.data.download(os.environ['DATASET_DIR'], experiment='MineRLTreechop-v0')
+data = minerl.data.make('MineRLTreechop-v0', data_dir=os.environ['DATASET_DIR'])
+
 
 def discount_rewards(rewards, gamma=0.9):
     dr = []
@@ -49,8 +52,6 @@ def next_batch(data, epochs: int, batch_size: int):
 
 def pretrain_value_model(model: torch.nn.Module, optimizer: torch.optim, epochs=1, single_batch=False):
     print('Pretraining Value model')
-
-    minerl.data.download(os.environ['DATASET_DIR'], experiment='MineRLTreechop-v0')
     data = minerl.data.make('MineRLTreechop-v0', data_dir=os.environ['DATASET_DIR'])
 
     criterion = MSELoss()
@@ -70,6 +71,7 @@ def pretrain_value_model(model: torch.nn.Module, optimizer: torch.optim, epochs=
         optimizer.step()
 
         if single_batch:
+            del data
             return
 
 
@@ -108,7 +110,8 @@ def main(policy_model: torch.nn.Module, value_model: torch.nn.Module,
             torch.save(value_model.state_dict(),
                        os.path.join(checkpoint_dir, f'{value_model.__class__.__name__}_{idx // 10}.pt'))
 
-        pretrain_value_model(value_model, value_optimizer, single_batch=True)
+        # if idx % 3 == 0:
+        #     pretrain_value_model(value_model, value_optimizer, single_batch=True)
 
 
 def optimize_model(value_model: torch.nn.Module, policy_optimizer: torch.optim.Optimizer,
@@ -122,8 +125,8 @@ def optimize_model(value_model: torch.nn.Module, policy_optimizer: torch.optim.O
 
     loss = torch.zeros(1, device=DEVICE)
     for t in range(len(long_term_reward)):
-        loss += results['log_probs'][t] * delta[t]
-        loss += results['log_probs'][t] * REG
+        loss -= results['log_probs'][t] * delta[t]
+        # loss -= results['log_probs'][t] * REG
 
     print(results['rewards'])
     print(loss)

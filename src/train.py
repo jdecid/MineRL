@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from src.models.ac import ValueCNNModel
 from src.models.imitation import PolicyCNNModel, PolicyLSTMModel
+from src.models.resnet import MResNet
 from src.tasks.treechop.evaluate import load_model
 from src.utils import DEVICE
 
@@ -26,6 +27,8 @@ def main(args):
             model = PolicyCNNModel(num_categorical=8, num_continuous=2)
         else:  # LSTM
             model = PolicyLSTMModel(num_categorical=8, num_continuous=2)
+
+    # model = MResNet(num_categorical=8, num_continuous=2)
     model = model.to(DEVICE)
 
     run_timestamp = str(datetime.now())

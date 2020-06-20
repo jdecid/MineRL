@@ -11,33 +11,48 @@ from torch.distributions import Bernoulli
 
 from src.models.ac import ValueCNNModel
 from src.models.imitation import PolicyCNNModel, PolicyLSTMModel
+from src.models.resnet import MResNet
 from src.tasks.treechop.imitation_train import transformation, SEQ_LEN
 from src.utils import tensor_to_action_dict, DEVICE, tensor_to_probabilistic_action_dict
+
+SAVED_GIF_COUNT = 0
 
 
 def load_model(model_type: str):
     if model_type == 'CNN':
         model = PolicyCNNModel(num_categorical=8, num_continuous=2)
-        path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-08_23-05-45-108802', 'PolicyCNNModel_11.pt')
+        path = os.path.join(os.environ['CHECKPOINT_DIR'], 'CNN_BASE_IMITATION', 'PolicyCNNModel_11.pt')
+    elif model_type == 'LSTM':
+        model = PolicyLSTMModel(num_categorical=8, num_continuous=2)
+        path = os.path.join(os.environ['CHECKPOINT_DIR'], 'LSTM_LARGE_V2', 'PolicyLSTMModel_6.pt')
     elif model_type == 'Value':
         model = ValueCNNModel(PolicyCNNModel(num_categorical=8, num_continuous=2))
         path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-14_18-09-18-321950', 'ValueCNNModel_0.pt')
+    elif model_type == 'ResNet':
+        model = MResNet(num_categorical=8, num_continuous=2)
+        path = os.path.join(os.environ['CHECKPOINT_DIR'], 'RESNET_V1', 'MResNet_6.pt')
     elif model_type == 'REINFORCE_CNN':
         model = PolicyCNNModel(num_categorical=8, num_continuous=2)
-        path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-14_10-07-03-179864', 'PolicyCNNModel_3.pt')
+        path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-17_09-26-36-985449', 'PolicyCNNModel_9.pt')
     elif model_type == 'REINFORCE_LSTM':
         model = PolicyCNNModel(num_categorical=8, num_continuous=2)
         # TODO: TRAIN BOY
-        path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-14_11-18-16-829177', 'PolicyLSTMModel_0.pt')
+        path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-17_09-26-36-985449', 'PolicyLSTMModel_0.pt')
     elif model_type == 'AC_CNN':
         model = PolicyCNNModel(num_categorical=8, num_continuous=2)
         # TODO: TRAIN BOY
-        path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-14_11-18-16-829177', 'PolicyLSTMModel_0.pt')
+        path = os.path.join(os.environ['CHECKPOINT_DIR'], 'AC_CNN', 'PolicyCNNModel_9.pt')
     else:
         model = PolicyLSTMModel(num_categorical=8, num_continuous=2)
         path = os.path.join(os.environ['CHECKPOINT_DIR'], '2020-06-09_19-53-32-296107', 'PolicyLSTMModel_4.pt')
 
+    # TODO: RESNET (?)
+    # if model_type == 'CNN':
+    #     # model = MResNet(num_categorical=8, num_continuous=2)
+    #     model = MResNet(num_categorical=8, num_continuous=2)
+
     model.load_state_dict(torch.load(path))
+
     model.to(DEVICE)
     model.eval()
 
@@ -45,32 +60,17 @@ def load_model(model_type: str):
 
 
 def generate_gif(images, output):
-    save_path = 'results'
-
     img, *imgs = [Image.fromarray(i, 'RGB') for i in images]
-    for idx, i in enumerate(imgs):
-        i.save(os.path.join(save_path, f'{idx}.png'))
-
     img.save(fp=output, format='GIF', append_images=imgs,
              save_all=True, duration=1000, loop=0)
 
 
 def eval_model(model: torch.nn.Module, n_envs: int, iterations: int, reset_step: bool):
-    uid = str(uuid.uuid4())
-    file_path = os.path.join('results', 'treechop', 'rewards', 'LSTM' if model.is_recurrent else 'CNN', f'{uid}.csv')
-    print(f'Saving {uid}')
-
-    repeats_rewards = []
-
     env = gym.make('MineRLTreechop-v0')
 
     for i in range(n_envs):
         print(f'Execution {i}')
-        rewards = run_env(model, env, iterations, reset_step)
-        repeats_rewards.append(rewards)
-
-    with open(file_path, mode='w') as f:
-        f.writelines([','.join(rewards) + '\n' for rewards in repeats_rewards])
+        run_env(model, env, iterations, reset_step)
 
 
 def run_env(model, env, iterations: int, reset_step: bool, eps=1.0):
@@ -80,6 +80,8 @@ def run_env(model, env, iterations: int, reset_step: bool, eps=1.0):
 
     sequence_frames = []
     all_frames = []
+
+    camera_std = []
 
     bernoulli = Bernoulli(eps)
 
@@ -102,6 +104,8 @@ def run_env(model, env, iterations: int, reset_step: bool, eps=1.0):
                 else:
                     pred, hc = model(frame.unsqueeze_(0), hc)
 
+            camera_std.append((pred[0][2].item(), pred[0][3].item()))
+
             if eps == 1.0:
                 action = tensor_to_action_dict(env, pred.squeeze())
             else:
@@ -111,15 +115,16 @@ def run_env(model, env, iterations: int, reset_step: bool, eps=1.0):
                     action, _ = tensor_to_probabilistic_action_dict(env, pred.squeeze())
 
             obs, rew, done, _ = env.step(action)
-            rewards.append(str(rew))
+            rewards.append(rew)
 
             idx += 1
 
-    # save = input('Save GIF? ')
-    # if save == 'Y':
-    #    generate_gif(all_frames, 'output.gif')
+    if sum(rewards) > 15:
+        global SAVED_GIF_COUNT
+        SAVED_GIF_COUNT += 1
+        generate_gif(all_frames, os.path.join('results', 'gifs', f'{SAVED_GIF_COUNT}.gif'))
 
-    return rewards
+    return camera_std
 
 
 if __name__ == '__main__':

@@ -46,16 +46,16 @@ def main(model: torch.nn.Module, episodes: int, iterations: int, eps: float, res
 
 def optimize_model(optimizer: torch.optim.Optimizer, results, writer, idx):
     long_term_reward = discount_rewards(results['rewards'])
-    print('[LTR] ', long_term_reward)
+    # print('[LTR] ', long_term_reward)
 
     optimizer.zero_grad()
 
     loss = torch.zeros(1, device=DEVICE)
     for t in range(len(long_term_reward)):
-        loss += results['log_probs'][t] * long_term_reward[t]
+        loss -= results['log_probs'][t] * long_term_reward[t]
 
-    print(results['rewards'])
-    print(loss)
+    # print(results['rewards'])
+    # print(loss)
 
     loss.backward()
     optimizer.step()
@@ -99,13 +99,9 @@ def run_env(model, env, iterations: int, eps: float, reset_step=False):
         if int(bernoulli.sample().item()):
             action = tensor_to_action_dict(env, pred.squeeze())
             log_prob = torch.log(torch.tensor(eps, device=DEVICE))
-            print(f'Det: {log_prob}')
         else:
             action, log_prob = tensor_to_probabilistic_action_dict(env, pred.squeeze())
             log_prob += torch.log(torch.tensor(1 - eps, device=DEVICE))
-            print(f'Prob: {log_prob}')
-
-        print('-' * 20)
 
         new_obs, rew, done, _ = env.step(action)
 

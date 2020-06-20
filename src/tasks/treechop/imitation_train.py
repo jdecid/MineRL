@@ -8,7 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torchvision.transforms import Compose
 
 from src.models.imitation import PolicyLSTMModel
-from src.utils import ToTensor, ImitationLoss, DEVICE, init_weights
+from src.utils import ToTensor, ImitationLoss, DEVICE, init_weights, ImitationLossV2
 
 EPOCHS = 100
 SEQ_LEN = 10
@@ -58,9 +58,11 @@ def train(model, frames, run_timestamp: str):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     criterion = ImitationLoss(num_continuous=2, writer=writer)
+    # criterion = ImitationLossV2(writer=writer)
 
     seq_len = SEQ_LEN if isinstance(model, PolicyLSTMModel) else 1
     for idx, (frames, target_actions) in enumerate(next_batch(frames, seq_len, EPOCHS, BATCH_SIZE), start=1):
+        print(f'Training [{idx:05}]')
         frames = frames.to(DEVICE)
 
         # Clear gradients
